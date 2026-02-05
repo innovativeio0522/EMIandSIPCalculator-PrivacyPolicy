@@ -1,5 +1,3 @@
-<img width="1271" height="621" alt="image" src="https://github.com/user-attachments/assets/38ed5470-b8c0-4f4c-8446-972cff9fe624" /># Privacy Policy
-
 **Effective Date: February 5, 2026**
 
 This Privacy Policy describes how your personal information is collected, used, and shared when you use the **EMI & SIP Calculator** (the "App").
