@@ -1,4 +1,4 @@
-# Privacy Policy
+<img width="1271" height="621" alt="image" src="https://github.com/user-attachments/assets/38ed5470-b8c0-4f4c-8446-972cff9fe624" /># Privacy Policy
 
 **Effective Date: February 5, 2026**
 
@@ -40,4 +40,4 @@ These Services do not address anyone under the age of 13. We do not knowingly co
 We may update our Privacy Policy from time to time. You are advised to review this page periodically for any changes.
 
 ## 8. Contact Us
-If you have any questions or suggestions about our Privacy Policy, do not hesitate to contact us at: **[Insert Your Contact Email Here]**.
+If you have any questions or suggestions about our Privacy Policy, do not hesitate to contact us at: **innovativeme.dev@gmail.com**.
