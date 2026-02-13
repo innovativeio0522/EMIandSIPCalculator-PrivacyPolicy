@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WebAR Mobile Experience</title>
+
+    <!-- A-Frame Library -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <!-- AR.js for A-Frame -->
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #ar-scene {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Loading Screen */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease;
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        /* Instructions Panel */
+        #instructions {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px 25px;
+            color: white;
+            text-align: center;
+            max-width: 90%;
+            width: 350px;
+            pointer-events: auto;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .instruction-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .instruction-text {
+            font-size: 14px;
+            color: rgba(255,255,255,0.8);
+            line-height: 1.5;
+        }
+
+        /* Marker Image */
+        .marker-preview {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 10px;
+            margin: 15px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .marker-pattern {
+            width: 60px;
+            height: 60px;
+            background: 
+                linear-gradient(45deg, #000 25%, transparent 25%),
+                linear-gradient(-45deg, #000 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #000 75%),
+                linear-gradient(-45deg, transparent 75%, #000 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        /* Top Bar */
+        #top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        .app-title {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.2);
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        /* Controls */
+        #controls {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover, .control-btn:active {
+            background: rgba(255,255,255,0.2);
+            transform: scale(1.1);
+        }
+
+        /* Screenshot Flash */
+        #flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 999;
+            transition: opacity 0.1s ease;
+        }
+
+        /* Hidden Canvas for Screenshots */
+        #screenshot-canvas {
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            #instructions {
+                bottom: 20px;
+                padding: 15px 20px;
+            }
+
+            .instruction-title {
+                font-size: 15px;
+            }
+
+            .instruction-text {
+                font-size: 13px;
+            }
+        }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="loader"></div>
+        <div class="loading-text">Initializing AR Camera...<br>Please allow camera access</div>
+    </div>
+
+    <!-- Flash Effect -->
+    <div id="flash"></div>
+
+    <!-- UI Layer -->
+    <div id="ui-layer">
+        <div id="top-bar">
+            <div class="app-title">🔮 WebAR Experience</div>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span class="status-text">AR Ready</span>
+            </div>
+        </div>
+
+        <div id="controls">
+            <button class="control-btn" onclick="toggleAnimation()" title="Toggle Animation">▶️</button>
+            <button class="control-btn" onclick="changeColor()" title="Change Color">🎨</button>
+            <button class="control-btn" onclick="takeScreenshot()" title="Take Photo">📸</button>
+            <button class="control-btn" onclick="toggleInfo()" title="Info">ℹ️</button>
+        </div>
+
+        <div id="instructions">
+            <div class="instruction-title">📱 Point at Hiro Marker</div>
+            <div class="marker-preview">
+                <div class="marker-pattern"></div>
+            </div>
+            <div class="instruction-text">
+                Visit <strong>https://jeromeetienne.github.io/AR.js/data/images/HIRO.jpg</strong> on another device or print this pattern to see the AR content come to life!
+            </div>
+        </div>
+    </div>
+
+    <!-- AR Scene -->
+    <a-scene 
+        id="ar-scene"
+        embedded 
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        vr-mode-ui="enabled: false"
+        renderer="logarithmicDepthBuffer: true; antialias: true; colorManagement: true;"
+        loading-screen="enabled: false">
+
+        <!-- Assets -->
+        <a-assets>
+            <a-mixin id="text-mixin" text="align: center; width: 4; color: #333; shader: msdf; font: https://raw.githubusercontent.com/etiennepinchon/aframe-fonts/master/fonts/roboto/Roboto-Bold.json"></a-mixin>
+        </a-assets>
+
+        <!-- Hiro Marker -->
+        <a-marker preset="hiro" id="hiro-marker" emitevents="true">
+            <!-- Main Container -->
+            <a-entity id="ar-content" position="0 0 0" rotation="-90 0 0">
+
+                <!-- 3D Model Group -->
+                <a-entity id="model-group" position="0 0.5 0">
+                    <!-- Animated Box -->
+                    <a-box 
+                        id="main-box"
+                        position="0 0 0" 
+                        rotation="0 45 0" 
+                        color="#4CC3D9"
+                        material="opacity: 0.9; transparent: true; metalness: 0.3; roughness: 0.4"
+                        animation="property: rotation; to: 0 405 0; loop: true; dur: 10000; easing: linear"
+                        shadow="cast: true; receive: true">
+                    </a-box>
+
+                    <!-- Orbiting Spheres -->
+                    <a-sphere 
+                        id="orbit-1"
+                        position="1.5 0 0" 
+                        radius="0.3" 
+                        color="#EF2D5E"
+                        animation="property: position; dir: alternate; dur: 2000; easing: easeInOutSine; loop: true; to: -1.5 0 0"
+                        shadow="cast: true">
+                    </a-sphere>
+
+                    <a-sphere 
+                        id="orbit-2"
+                        position="0 1.5 0" 
+                        radius="0.3" 
+                        color="#FFC65D"
+                        animation="property: position; dir: alternate; dur: 2500; easing: easeInOutSine; loop: true; to: 0 -1.5 0"
+                        shadow="cast: true">
+                    </a-sphere>
+
+                    <a-sphere 
+                        id="orbit-3"
+                        position="0 0 1.5" 
+                        radius="0.3" 
+                        color="#7BC8A4"
+                        animation="property: position; dir: alternate; dur: 3000; easing: easeInOutSine; loop: true; to: 0 0 -1.5"
+                        shadow="cast: true">
+                    </a-sphere>
+
+                    <!-- Floating Particles -->
+                    <a-entity id="particles"></a-entity>
+
+                    <!-- Text Label -->
+                    <a-text 
+                        value="WebAR!" 
+                        position="0 1.5 0" 
+                        align="center"
+                        width="5"
+                        color="#FFFFFF"
+                        font="kelsonsans"
+                        look-at="[camera]">
+                    </a-text>
+
+                    <!-- Shadow Plane -->
+                    <a-plane 
+                        position="0 -0.5 0" 
+                        rotation="-90 0 0" 
+                        width="4" 
+                        height="4" 
+                        color="#000000"
+                        opacity="0.3"
+                        shadow="receive: true">
+                    </a-plane>
+                </a-entity>
+
+                <!-- Interactive Button (Virtual) -->
+                <a-cylinder 
+                    id="interact-btn"
+                    position="0 0.1 1.5" 
+                    radius="0.3" 
+                    height="0.1" 
+                    color="#10B981"
+                    class="clickable"
+                    animation__hover="property: scale; to: 1.2 1.2 1.2; dur: 200; startEvents: mouseenter"
+                    animation__leave="property: scale; to: 1 1 1; dur: 200; startEvents: mouseleave">
+                    <a-text 
+                        value="Tap Me!" 
+                        position="0 0.1 0" 
+                        rotation="-90 0 0"
+                        align="center"
+                        width="3"
+                        color="#FFFFFF">
+                    </a-text>
+                </a-cylinder>
+            </a-entity>
+        </a-marker>
+
+        <!-- Kanji Marker (Alternative) -->
+        <a-marker preset="kanji" id="kanji-marker">
+            <a-entity position="0 0 0" rotation="-90 0 0">
+                <a-torus-knot 
+                    radius="0.5" 
+                    radius-tubular="0.05"
+                    color="#FF6B6B"
+                    animation="property: rotation; to: 360 360 0; loop: true; dur: 8000; easing: linear">
+                </a-torus-knot>
+                <a-text 
+                    value="Kanji Mode!" 
+                    position="0 1 0" 
+                    align="center"
+                    color="#FFFFFF">
+                </a-text>
+            </a-entity>
+        </a-marker>
+
+        <!-- Custom Pattern Marker (Barcode) -->
+        <a-marker type="barcode" value="5" id="barcode-marker">
+            <a-entity position="0 0 0" rotation="-90 0 0">
+                <a-dodecahedron 
+                    radius="0.6" 
+                    color="#9F7AEA"
+                    animation="property: rotation; to: 0 360 360; loop: true; dur: 6000; easing: linear">
+                </a-dodecahedron>
+            </a-entity>
+        </a-marker>
+
+        <!-- Camera -->
+        <a-entity camera look-controls="enabled: false" position="0 0 0">
+            <a-cursor 
+                id="cursor"
+                color="#FFFFFF"
+                fuse="true"
+                fuse-timeout="1500"
+                raycaster="objects: .clickable"
+                animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150"
+                animation__fusing="property: scale; startEvents: fusing; from: 1 1 1; to: 0.1 0.1 0.1; dur: 1500"
+                animation__mouseleave="property: scale; startEvents: mouseleave; to: 1 1 1; dur: 500">
+            </a-cursor>
+        </a-entity>
+
+        <!-- Lighting -->
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.8" position="-1 2 1" cast-shadow="true"></a-light>
+        <a-light type="point" color="#4CC3D9" intensity="0.5" position="2 3 2" distance="10" decay="2"></a-light>
+    </a-scene>
+
+    <canvas id="screenshot-canvas"></canvas>
+
+    <script>
+        // State Management
+        let isAnimating = true;
+        let currentColorIndex = 0;
+        const colors = ['#4CC3D9', '#EF2D5E', '#FFC65D', '#7BC8A4', '#9F7AEA', '#FF6B6B'];
+
+        // DOM Elements
+        const loadingScreen = document.getElementById('loading-screen');
+        const mainBox = document.getElementById('main-box');
+        const modelGroup = document.getElementById('model-group');
+        const interactBtn = document.getElementById('interact-btn');
+        const particlesContainer = document.getElementById('particles');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Hide loading screen after AR is ready
+            const scene = document.querySelector('a-scene');
+            scene.addEventListener('loaded', function() {
+                setTimeout(() => {
+                    loadingScreen.style.opacity = '0';
+                    setTimeout(() => {
+                        loadingScreen.style.display = 'none';
+                    }, 500);
+                }, 2000);
+            });
+
+            // Create particles
+            createParticles();
+
+            // Marker detection events
+            const hiroMarker = document.getElementById('hiro-marker');
+            hiroMarker.addEventListener('markerFound', function() {
+                console.log('Hiro marker found!');
+                document.querySelector('.status-text').textContent = 'Tracking Active';
+                document.querySelector('.status-dot').style.background = '#4ade80';
+            });
+
+            hiroMarker.addEventListener('markerLost', function() {
+                console.log('Hiro marker lost!');
+                document.querySelector('.status-text').textContent = 'Searching...';
+                document.querySelector('.status-dot').style.background = '#fbbf24';
+            });
+
+            // Interactive button click
+            interactBtn.addEventListener('click', function() {
+                triggerSpecialEffect();
+            });
+
+            // Touch events for mobile
+            setupTouchEvents();
+        });
+
+        // Create floating particles
+        function createParticles() {
+            for (let i = 0; i < 8; i++) {
+                const particle = document.createElement('a-sphere');
+                particle.setAttribute('radius', '0.08');
+                particle.setAttribute('color', colors[i % colors.length]);
+                particle.setAttribute('opacity', '0.8');
+
+                // Random position around center
+                const angle = (i / 8) * Math.PI * 2;
+                const radius = 1.2;
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                const y = Math.random() * 2 - 0.5;
+
+                particle.setAttribute('position', `${x} ${y} ${z}`);
+
+                // Floating animation
+                particle.setAttribute('animation', {
+                    property: 'position',
+                    dir: 'alternate',
+                    dur: 2000 + Math.random() * 1000,
+                    easing: 'easeInOutSine',
+                    loop: true,
+                    to: `${x} ${y + 0.5} ${z}`
+                });
+
+                // Rotation animation
+                particle.setAttribute('animation__rotate', {
+                    property: 'rotation',
+                    to: '360 360 360',
+                    loop: true,
+                    dur: 5000 + Math.random() * 3000,
+                    easing: 'linear'
+                });
+
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // Toggle animation
+        function toggleAnimation() {
+            isAnimating = !isAnimating;
+            const box = document.getElementById('main-box');
+            const spheres = ['orbit-1', 'orbit-2', 'orbit-3'];
+
+            if (isAnimating) {
+                box.setAttribute('animation', 'property: rotation; to: 0 405 0; loop: true; dur: 10000; easing: linear');
+                spheres.forEach(id => {
+                    const el = document.getElementById(id);
+                    el.setAttribute('animation', {enabled: true});
+                });
+            } else {
+                box.removeAttribute('animation');
+                spheres.forEach(id => {
+                    const el = document.getElementById(id);
+                    el.removeAttribute('animation');
+                });
+            }
+        }
+
+        // Change color theme
+        function changeColor() {
+            currentColorIndex = (currentColorIndex + 1) % colors.length;
+            const newColor = colors[currentColorIndex];
+
+            mainBox.setAttribute('color', newColor);
+
+            // Update particles
+            const particles = particlesContainer.querySelectorAll('a-sphere');
+            particles.forEach((p, i) => {
+                p.setAttribute('color', colors[(currentColorIndex + i) % colors.length]);
+            });
+
+            // Flash effect
+            const flash = document.getElementById('flash');
+            flash.style.opacity = '0.3';
+            setTimeout(() => {
+                flash.style.opacity = '0';
+            }, 100);
+        }
+
+        // Special effect on button click
+        function triggerSpecialEffect() {
+            // Scale bounce
+            modelGroup.setAttribute('animation__bounce', {
+                property: 'scale',
+                to: '1.5 1.5 1.5',
+                dur: 200,
+                easing: 'easeOutQuad'
+            });
+
+            setTimeout(() => {
+                modelGroup.setAttribute('animation__bounceback', {
+                    property: 'scale',
+                    to: '1 1 1',
+                    dur: 300,
+                    easing: 'easeOutBounce'
+                });
+            }, 200);
+
+            // Change color randomly
+            changeColor();
+
+            // Vibrate if supported
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        }
+
+        // Take screenshot
+        function takeScreenshot() {
+            const scene = document.querySelector('a-scene');
+            const canvas = scene.components.screenshot.getCanvas('perspective');
+
+            // Flash effect
+            const flash = document.getElementById('flash');
+            flash.style.opacity = '1';
+            setTimeout(() => {
+                flash.style.opacity = '0';
+            }, 100);
+
+            // Convert to image and download
+            const dataURL = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = 'webar-capture-' + Date.now() + '.png';
+            link.href = dataURL;
+            link.click();
+
+            // Vibrate
+            if (navigator.vibrate) {
+                navigator.vibrate([50, 50, 50]);
+            }
+        }
+
+        // Toggle info panel
+        function toggleInfo() {
+            const instructions = document.getElementById('instructions');
+            if (instructions.style.display === 'none') {
+                instructions.style.display = 'block';
+            } else {
+                instructions.style.display = 'none';
+            }
+        }
+
+        // Setup touch events for better mobile experience
+        function setupTouchEvents() {
+            let touchStartY = 0;
+
+            document.addEventListener('touchstart', function(e) {
+                touchStartY = e.touches[0].clientY;
+            }, {passive: true});
+
+            document.addEventListener('touchmove', function(e) {
+                // Prevent scrolling when in AR mode
+                e.preventDefault();
+            }, {passive: false});
+
+            // Double tap to toggle info
+            let lastTap = 0;
+            document.addEventListener('touchend', function(e) {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                if (tapLength < 300 && tapLength > 0) {
+                    toggleInfo();
+                }
+                lastTap = currentTime;
+            });
+        }
+
+        // Handle orientation change
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+            }, 100);
+        });
+
+        // Prevent context menu on long press
+        window.oncontextmenu = function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
+        };
+    </script>
+</body>
+</html>
